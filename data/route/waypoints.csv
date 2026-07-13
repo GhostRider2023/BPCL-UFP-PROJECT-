@@ -1,0 +1,9 @@
+waypoint_id,name,lat,lon,chainage_km,elevation_m,od_inch,wall_thickness_mm,roughness_mm,burial_depth_m,station_type,source
+1,Kota (Dispatch),25.18,75.83,0.0,271.0,16.0,12.7,0.045,1.2,dispatch,ESTIMATED
+2,Bundi,25.43,75.65,40.0,268.0,16.0,12.7,0.045,1.2,waypoint,ESTIMATED
+3,Sawai Madhopur,26.00,76.35,110.0,262.0,16.0,12.7,0.045,1.2,waypoint,ESTIMATED
+4,Bharatpur,27.22,77.49,210.0,183.0,16.0,12.7,0.045,1.2,waypoint,ESTIMATED
+5,Mathura (crossing),27.49,77.67,250.0,174.0,16.0,12.7,0.045,1.2,crossing,ESTIMATED
+6,Faridabad,28.41,77.31,330.0,198.0,16.0,12.7,0.045,1.2,waypoint,ESTIMATED
+7,Piyala,28.48,77.28,340.0,200.0,16.0,12.7,0.045,1.2,waypoint,ESTIMATED
+8,Bijwasan (Receipt),28.52,77.08,360.0,215.0,16.0,12.7,0.045,1.2,receipt,ESTIMATED

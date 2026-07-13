@@ -1,0 +1,20 @@
+# Base theme tokens for the simulator UI.
+#
+# These have to live here, not in dashboard/theme.py: Streamlit hands
+# primaryColor to BaseWeb, which paints the widget internals (slider track,
+# checkbox tick, focus rings) before any injected CSS can reach them. Setting
+# it here is what stops the controls from coming out in default Streamlit red
+# inside a gold-and-navy control room.
+#
+# Keep in sync with the colour tokens at the top of dashboard/theme.py.
+
+[theme]
+base = "dark"
+primaryColor = "#F5A623"             # GOLD  — the product, and every control
+backgroundColor = "#080C15"          # BG
+secondaryBackgroundColor = "#161F32" # PANEL_2
+textColor = "#E8EEF9"                # TEXT
+font = "sans serif"
+
+[server]
+headless = true
