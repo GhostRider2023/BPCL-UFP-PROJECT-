@@ -448,14 +448,10 @@ face_Q.markdown(
         "m³/hr",
         glyph="➤",
         accent=BLUE,
-        sub=(
-            (
-                f"<span class='hot'>{u_main:.2f} m/s</span> in the 8″ bore"
-                if UNIFORM_BORE and TAIL_FRACTION >= 1.0
-                else f"<span class='hot'>{u_main:.2f} m/s</span> in the 18″ main · "
-                f"<span class='hot'>{u_tail:.2f} m/s</span> in the 8″ tail"
-            )
-        ),
+        # Only the 8" tail velocity is reported: it is the binding constraint,
+        # since the whole batch passes through it and it runs 4.47x faster than
+        # the 18" mainline.
+        sub=f"<span class='hot'>{u_tail:.2f} m/s</span> in the 8″ tail",
     ),
     unsafe_allow_html=True,
 )
