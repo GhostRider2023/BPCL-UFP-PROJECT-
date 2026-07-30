@@ -15,6 +15,7 @@ Columns:
   moisture_m3m3, k_soil_WmK
 """
 
+import math
 import os
 import sys
 
@@ -29,6 +30,26 @@ from config import (
 )
 from geo.route import Route
 from model.soil_profile import clamp_moisture, compute_k_soil, require_finite
+
+# A waypoint further than this from the ERA5 cell that answered for it is
+# outside the download's coverage, and its soil state is an extrapolation
+# rather than a reading. ERA5-Land is a 0.1 deg grid (~11 km), so anything
+# beyond ~25 km means we fell off the edge of the box, not merely onto a
+# neighbouring cell.
+ERA5_NEAREST_WARN_KM = 25.0
+
+SOIL_SOURCE_OBSERVED = "ERA5"
+SOIL_SOURCE_OUT_OF_BOX = "EXTRAPOLATED_OUTSIDE_ERA5_BBOX"
+
+
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance [km]. Only used to police grid snapping."""
+    r = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
 
 
 def generate_soil_csv(
@@ -67,6 +88,27 @@ def generate_soil_csv(
             )
             where = f"{wp.name} (km {wp.chainage_km:.0f}), month {month}"
 
+            # HOW FAR AWAY IS THE CELL WE ACTUALLY GOT?
+            #
+            # xarray's method="nearest" never fails: ask for a point outside the
+            # download's bounding box and it silently hands back the closest
+            # edge cell, however far that is. Bina sits ~95 km outside the
+            # cached box, and without this guard its soil temperature would
+            # arrive looking exactly like a measurement.
+            #
+            # So the distance is computed, recorded in the CSV, and anything
+            # beyond ERA5_NEAREST_WARN_KM is labelled as out-of-coverage rather
+            # than passed off as observed.
+            got_lat = float(local["latitude"].values)
+            got_lon = float(local["longitude"].values)
+            offset_km = _haversine_km(wp.lat, wp.lon, got_lat, got_lon)
+            in_coverage = offset_km <= ERA5_NEAREST_WARN_KM
+            soil_source = (
+                SOIL_SOURCE_OBSERVED
+                if in_coverage
+                else f"{SOIL_SOURCE_OUT_OF_BOX} ({offset_km:.0f} km)"
+            )
+
             # Soil state at the pipe's burial depth. SOIL_TEMPERATURE_VAR is
             # stl4 (100–289 cm) because the pipe sits at 1.2 m — inside layer 4.
             # Guarded: a NaN must never be silently clamped into a
@@ -100,6 +142,8 @@ def generate_soil_csv(
                     "k_soil_WmK": round(k_soil, 4),
                     "soil_layer": SOIL_TEMPERATURE_VAR,
                     "burial_depth_m": wp.burial_depth_m,
+                    "soil_source": soil_source,
+                    "era5_cell_offset_km": round(offset_km, 1),
                 }
             )
 
@@ -119,6 +163,17 @@ def generate_soil_csv(
 
     df.to_csv(output_csv, index=False)
     print(f"Wrote {len(df)} rows to {output_csv}")
+
+    outside = df[df["soil_source"] != SOIL_SOURCE_OBSERVED]
+    if not outside.empty:
+        names = sorted(outside["waypoint_name"].unique())
+        print(
+            f"  [WARNING] {len(outside)} rows are OUTSIDE the ERA5 download "
+            f"box and were extrapolated from the nearest edge cell: {names}. "
+            f"Their soil temperature is NOT a reading. Re-download ERA5 with "
+            f"ERA5_BBOX widened to cover them (config.ERA5_BBOX is already "
+            f"set for this; the cached NetCDF is not)."
+        )
     print(f"  Waypoints: {df['waypoint_name'].nunique()}")
     print(f"  Months:    {df['month'].nunique()} -> {months_present}")
     if months_absent:

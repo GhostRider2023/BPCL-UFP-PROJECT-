@@ -36,21 +36,24 @@ class Waypoint:
     km: float  # cumulative distance from Kota [km]
 
 
+# Kept in step with data/route/waypoints.csv, which is the source of truth for
+# the physics path. This list serves the older geo/centerline.py helper only.
 WAYPOINTS: List[Waypoint] = [
-    Waypoint("Kota (Dispatch)", 25.18, 75.83, 0.0),
-    Waypoint("Bundi", 25.43, 75.65, 40.0),
-    Waypoint("Sawai Madhopur", 26.00, 76.35, 110.0),
-    Waypoint("Bharatpur", 27.22, 77.49, 210.0),
-    Waypoint("Mathura (crossing)", 27.49, 77.67, 250.0),
-    Waypoint("Faridabad", 28.41, 77.31, 330.0),
-    Waypoint("Piyala", 28.48, 77.28, 340.0),
-    Waypoint("Bijwasan (Receipt)", 28.52, 77.08, 360.0),
+    Waypoint("Bina (Refinery)", 24.1866, 78.1919, 0.0),
+    Waypoint("Kota", 25.18, 75.83, 259.0),
+    Waypoint("Bundi", 25.43, 75.65, 299.0),
+    Waypoint("Sawai Madhopur", 26.00, 76.35, 369.0),
+    Waypoint("Bharatpur", 27.22, 77.49, 469.0),
+    Waypoint("Mathura (crossing)", 27.49, 77.67, 509.0),
+    Waypoint("Faridabad", 28.41, 77.31, 589.0),
+    Waypoint("Piyala", 28.48, 77.28, 599.0),
+    Waypoint("Bijwasan (Receipt)", 28.52, 77.08, 619.0),
 ]
 
-PIPELINE_LENGTH_KM: float = 360.0  # total route length [km]
+PIPELINE_LENGTH_KM: float = 619.0  # Bina -> Bijwasan [km]
 
 # Spatial resolution for continuous centerline sampling
-CENTERLINE_RESOLUTION_KM: float = 1.0  # sample every 1 km → ~360 points
+CENTERLINE_RESOLUTION_KM: float = 1.0  # sample every 1 km → ~619 points
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -98,14 +101,157 @@ class PipeSegment:
 # MMBPL pipeline segments (Kota to Bijwasan)
 # Source: PNGRB tariff orders, BPCL annual reports
 # Assumption: Wall thickness ~ Sch 40 for API 5L Grade B
+# NOTE ON "NOMINAL" DIAMETER
+# --------------------------
+# For NPS 14 and below, the nominal size is NOT the outer diameter:
+#
+#     NPS  8  ->  OD  8.625 in = 0.21908 m     (not 8.000 in)
+#     NPS 10  ->  OD 10.750 in = 0.27305 m     (not 10.000 in)
+#     NPS 18  ->  OD 18.000 in = 0.45720 m     (nominal = actual from NPS 14 up)
+#
+# `od_inch` below therefore carries the TRUE outer diameter in inches, so that
+# PipeSegment.outer_diameter_m is the real bore an engineer would order. Wall
+# thicknesses are Sch 40 for the stated NPS (NPS 18 = 0.562 in = 14.27 mm,
+# NPS 8 = 0.322 in = 8.18 mm).
+#
+# THE 18"/8" SPLIT
+# ----------------
+# The MMBPL system's Manmad -> Piyala -> Bijwasan section is documented as
+# 18"/8" over 750 km: an 18-inch mainline with an 8-inch tail, NOT an 8-inch
+# line throughout. Applying 8 inches to the whole mainline overstates the
+# friction gradient by ~2.5x, because Darcy-Weisbach loss scales as roughly
+# D^-5:
+#
+#     18" at 1 m/s  ->  0.11 bar/km
+#      8" at 1 m/s  ->  0.30 bar/km      ~2.7x the gradient
+#
+# Source: Mumbai-Manmad Pipeline section table (18" / 8", 750 km); BPCL MMBPL
+# system max diameter 18 in. Matches this project's original declaration of
+# Piyala-Bijwasan as an 8-inch spur.
 PIPE_SEGMENTS: List[PipeSegment] = [
-    PipeSegment("Kota–Piyala", 0.0, 340.0, 16.0, 12.7),  # 16", Sch 40 → t = 12.7 mm
-    PipeSegment("Piyala–Bijwasan", 340.0, 360.0, 8.0, 8.18),  # 8", Sch 40 → t = 8.18 mm
+    PipeSegment("Bina–Piyala", 0.0, 599.0, 18.0, 14.27),  # NPS 18 mainline, Sch 40
+    PipeSegment("Piyala–Bijwasan", 599.0, 619.0, 8.625, 8.18),  # NPS 8 tail, Sch 40
 ]
 
 # Default (single-diameter fallback for simplified calculations)
-DEFAULT_OD_INCH: float = 16.0
-DEFAULT_WALL_THICKNESS_MM: float = 12.7
+DEFAULT_OD_INCH: float = 18.0  # NPS 18 mainline
+DEFAULT_WALL_THICKNESS_MM: float = 14.27  # Sch 40
+
+
+# ═══════════════════════════════════════════════════════════════════
+# INTERMEDIATE PUMP STATIONS
+# ═══════════════════════════════════════════════════════════════════
+#
+# A 360 km line is not pumped from one end. Booster stations re-pressurise the
+# product every ~50 miles (~80 km), because the alternative is a dispatch
+# pressure no pipe could hold: at 3 m/s the 18-inch mainline loses 1.02 bar/km,
+# so 360 km on a single pump would need 366 bar against a typical product-line
+# MAOP of ~100 bar.
+#
+# With stations every 80 km each section only has to make up ~81 bar, which sits
+# comfortably inside MAOP — and the line runs 3 m/s with no slack flow, which is
+# what BPCL operations describe. Modelling one pump at Kota was the second half
+# of the discrepancy (the first being the 8-inch diameter above).
+#
+# Each station DISCHARGES at its stated pressure: arriving product is boosted
+# back up to `discharge_bar`, exactly as a booster station does. Set
+# `PUMP_STATIONS = []` (or switch the toggle off in the dashboard) to model the
+# single-pump case for comparison.
+#
+# These are hydraulic configuration, not geometry, so they live here rather than
+# in data/route/waypoints.csv — that file is the single source of truth for the
+# PIPE, and a pump is not a property of the pipe.
+#
+# Chainages are placed on an even ~80 km spacing rather than on the named
+# waypoints, because pump stations are sited by hydraulics, not by which towns
+# happen to be on the route.
+
+
+@dataclass(frozen=True)
+class PumpStation:
+    """An intermediate booster station."""
+
+    name: str
+    km: float  # chainage from Kota [km]
+    discharge_bar: float  # gauge pressure leaving the station [bar]
+
+
+PUMP_STATIONS: List[PumpStation] = [
+    PumpStation("IPS-1", 80.0, 100.0),
+    PumpStation("IPS-2", 160.0, 100.0),
+    PumpStation("IPS-3", 240.0, 100.0),
+    PumpStation("IPS-4", 320.0, 100.0),
+    PumpStation("IPS-5", 400.0, 100.0),
+    PumpStation("IPS-6", 480.0, 100.0),
+    PumpStation("IPS-7", 560.0, 100.0),
+]
+
+# Minimum acceptable suction pressure at a booster station [bar gauge].
+# Below this a centrifugal pump cavitates; the product must arrive with head to
+# spare, not merely above its vapour pressure.
+MIN_SUCTION_BAR: float = 2.0
+
+
+# ═══════════════════════════════════════════════════════════════════
+# FLOW SPLITS — product delivered mid-route
+# ═══════════════════════════════════════════════════════════════════
+#
+# THIS MODEL SHIPS WITH NO MID-ROUTE DELIVERY. See FLOW_SPLITS below.
+#
+# The batch is dispatched at Bina and received in full at Bijwasan. Nothing is
+# taken off in between, because the question this simulator exists to answer is
+# a CUSTODY TRANSFER question: how much product left Bina, how much arrived at
+# Bijwasan, and is the difference explained by thermal contraction rather than
+# by loss. A mid-route delivery would sit inside that comparison and make the
+# receipt volume incomparable with the dispatch volume — the receipt figure
+# would look like an enormous UFP that was really just product delivered
+# somewhere else.
+#
+# So the conservation statement is the strong one, and stays the project's
+# headline acceptance test:
+#
+#     V_std(Bijwasan) == V_std(Kota)      to machine precision
+#
+# The split MECHANISM is retained and tested (see model/kernel.py and
+# validation/test_simulator.py::TestFlowSplit) because the MMBPL line does have
+# a delivery terminal at Piyala in reality, and a future revision modelling the
+# whole system will need it. It is simply not part of the Kota->Bijwasan
+# custody chain this model represents.
+#
+# CONSEQUENCE FOR THE HYDRAULICS
+# ------------------------------
+# With one flow through both bores, the 8" tail is the binding constraint: its
+# area is 4.47x smaller, so it runs 4.47x faster than the mainline. The line's
+# throughput is therefore whatever the tail can pass — roughly 350 m3/hr at
+# 3 m/s — with the 18" mainline loafing at 0.67 m/s. That is not a modelling
+# artefact; it is what a trunk line narrowing for its final approach into a
+# city terminal actually does.
+
+
+@dataclass(frozen=True)
+class FlowSplit:
+    """Product taken off the line at a mid-route delivery point."""
+
+    name: str
+    km: float  # chainage from Kota [km]
+    delivered_fraction: float  # fraction of the ARRIVING mass dropped here
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.delivered_fraction < 1.0:
+            raise ValueError(
+                f"{self.name}: delivered_fraction must be in [0, 1), got "
+                f"{self.delivered_fraction}. A value of 1.0 would deliver the "
+                f"entire batch and leave nothing to model downstream."
+            )
+
+
+# EMPTY BY DESIGN — the batch travels Kota -> Bijwasan intact.
+#
+# Do not populate this to "fix" the tail velocity. If the throughput looks low,
+# that is the 8-inch final approach genuinely limiting the line, and the answer
+# is a lower flow rate, not an invented delivery. Adding an entry here breaks
+# the end-to-end standard-volume invariance that the UFP analysis depends on.
+FLOW_SPLITS: List[FlowSplit] = []
 
 
 def get_pipe_segment(km: float) -> PipeSegment:
@@ -347,7 +493,10 @@ T_BASE_F: float = T_BASE_C * 9.0 / 5.0 + 32.0  # = 59.0°F
 
 # Bounding box for ERA5 data download [North, West, South, East]
 # Source: Route geometry with buffer
-ERA5_BBOX: Tuple[float, float, float, float] = (29.0, 75.5, 25.0, 78.0)
+# Extended south and east to cover Bina (24.19 N, 78.19 E) and the
+# Bina -> Kota corridor. The CACHED datasets predate this and still stop at
+# 25.0 N / 78.0 E — see data/route/README.md. Re-download to close the gap.
+ERA5_BBOX: Tuple[float, float, float, float] = (29.0, 75.5, 23.5, 79.0)
 
 # ERA5 variables to download
 ERA5_VARIABLES: List[str] = [
@@ -378,12 +527,109 @@ REAL_ERA5_CACHE_FILE: str = os.path.join(
 
 
 # ═══════════════════════════════════════════════════════════════════
+# REAL-TIME AIR TEMPERATURE — THE TWO TERMINALS
+# ═══════════════════════════════════════════════════════════════════
+#
+# The soil temperature above is a monthly ERA5-Land climatology: it describes
+# the ground the pipe is buried in, and it is the right boundary condition for
+# the deep, slow-moving thermal mass. It is NOT the whole environment the line
+# sees — where the pipe surfaces, it tracks today's air instead.
+#
+# The pipe surfaces at exactly two places: the dispatch terminal at Bina and the
+# receipt terminal at Bijwasan. Above-ground manifolds, meter skids, tankage
+# headers and shallow approach spools all sit in the open air there. Between
+# them the line is buried at BURIAL_DEPTH_M for hundreds of kilometres, where
+# the daily air signal does not penetrate and the ERA5 deep-soil temperature is
+# the correct and only boundary condition.
+#
+# So the boundary condition is:
+#
+#     Bina      (surface pipework):  T_env = (T_air_current + T_fuel) / 2
+#     Bijwasan  (buried terminal):   T_env = (T_air_current + T_soil) / 2
+#     everywhere else:               T_env = T_soil
+#
+# Air is therefore queried at these two stations and nowhere else. Fetching the
+# intermediate stations would put numbers on screen that change nothing in the
+# physics, and a station table should show what is USED, not what is knowable.
+#
+# T_air_current is the CURRENT observed air temperature — a measurement, never a
+# forecast, never a model, never an interpolation in time. If no provider can be
+# reached the run is reported as soil-only; no air temperature is ever invented.
+# See data/air_temperature.py for provider selection.
+
+# Weather-query coordinates for the two terminals. Deliberately kept separate
+# from the route waypoint lat/lon in data/route/waypoints.csv, which define
+# pipeline geometry and geodesic chainage and must not be perturbed.
+AIR_STATIONS: Dict[str, Tuple[float, float]] = {
+    "Bina": (24.1866, 78.1919),
+    "Bijwasan": (28.5336, 77.0567),
+}
+
+# Maps each air station onto the route waypoint it represents. Route waypoint
+# names carry role suffixes ("Bina (Refinery)"); the weather stations do not.
+AIR_STATION_TO_WAYPOINT: Dict[str, str] = {
+    "Bina": "Bina (Refinery)",
+    "Bijwasan": "Bijwasan (Receipt)",
+}
+
+# Stations where the pipe is ABOVE GROUND, so soil is not its environment.
+#
+# At Bina the line has not yet been buried — it leaves the refinery on surface
+# pipework, where the product sits at the local air temperature. Its environment is therefore the open air and
+# the product it is carrying, not the ground:
+#
+#     T_env(Bina) = (T_air_current + T_fuel_dispatch) / 2
+#
+# T_fuel_dispatch is the temperature the product leaves the refinery at, entered
+# by the operator — it is a meter measurement, not a solved quantity, which is
+# what makes it admissible in a boundary condition here. Note it is also the
+# initial condition T(x=0) of the energy equation, so at km 0 the boundary and
+# the initial state are deliberately related; downstream of the first few
+# hundred metres the buried soil boundary takes over completely.
+#
+# Everywhere else the pipe is buried at BURIAL_DEPTH_M and the soil governs.
+AIR_FUEL_BLEND_STATIONS: List[str] = ["Bina"]
+
+# OpenWeather Current Weather endpoint. units=metric so `main.temp` is in °C.
+OPENWEATHER_URL: str = "https://api.openweathermap.org/data/2.5/weather"
+OPENWEATHER_UNITS: str = "metric"
+
+# HTTP timeout for one air-temperature request [s] — connect and read.
+# Provider-independent: both OpenWeather and Open-Meteo use it.
+AIR_TIMEOUT_S: float = 8.0
+
+# How long a fetched set of current temperatures stays valid before the
+# dashboard re-queries [s]. Prevents a Streamlit rerun (which fires on every
+# widget change) from hammering the API with duplicate calls inside one run.
+AIR_CACHE_TTL_S: int = 600
+
+# Name of the environment variable / secret holding the API key.
+# NEVER hardcode the key itself here. See data/openweather.py for the
+# resolution order (env var → .env → Streamlit secrets → key file).
+OPENWEATHER_API_KEY_ENV: str = "OPENWEATHER_API_KEY"
+
+
+# ═══════════════════════════════════════════════════════════════════
 # FLOW RATE OPTIMIZER DEFAULTS
 # ═══════════════════════════════════════════════════════════════════
 
 # Velocity bounds for optimization [m/s]
 VELOCITY_MIN_MS: float = 0.5
 VELOCITY_MAX_MS: float = 2.5
+
+# Upper velocity the DASHBOARD's flow slider is allowed to reach [m/s].
+#
+# Deliberately above VELOCITY_MAX_MS, which is the optimiser's *design* bound.
+# This one is an exploration limit: on the 10-inch bore the line goes slack
+# somewhere near 130 m3/hr from 70 bar, and the slack-flow guard is only useful
+# if the operator can actually drive the model past that point and watch it
+# fail. The slider's maximum flow is derived from this at runtime,
+#
+#     Q_max [m3/hr] = VELOCITY_SLIDER_CAP_MS * A * 3600
+#
+# so it tracks the pipe diameter automatically instead of being a magic number
+# that silently means something different after the next geometry change.
+VELOCITY_SLIDER_CAP_MS: float = 4.0
 
 # Pump efficiency (dimensionless)
 # Source: Typical centrifugal pump efficiency for petroleum service
@@ -438,10 +684,13 @@ class TerrainZone:
 
 
 TERRAIN_ZONES: List[TerrainZone] = [
-    TerrainZone("Chambal Ravines", 0.0, 110.0, "coarse", 0.35, 0.60),
-    TerrainZone("Rajasthan Plains", 110.0, 210.0, "coarse", 0.42, 0.55),
-    TerrainZone("Yamuna Alluvial", 210.0, 250.0, "fine", 0.45, 0.40),
-    TerrainZone("Haryana Plains", 250.0, 360.0, "fine", 0.45, 0.35),
+    # Bina -> Kota crosses the Malwa plateau: Deccan-trap black cotton soil,
+    # clay-rich and low in quartz, hence "fine" with a low quartz fraction.
+    TerrainZone("Malwa Plateau", 0.0, 259.0, "fine", 0.45, 0.30),
+    TerrainZone("Chambal Ravines", 259.0, 369.0, "coarse", 0.35, 0.60),
+    TerrainZone("Rajasthan Plains", 369.0, 469.0, "coarse", 0.42, 0.55),
+    TerrainZone("Yamuna Alluvial", 469.0, 509.0, "fine", 0.45, 0.40),
+    TerrainZone("Haryana Plains", 509.0, 619.0, "fine", 0.45, 0.35),
 ]
 
 

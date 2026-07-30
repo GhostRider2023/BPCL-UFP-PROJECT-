@@ -58,19 +58,19 @@ class TestCenterline:
     def test_centerline_point_count(self):
         """Should generate approximately 360 points at 1 km resolution."""
         pts = generate_centerline(resolution_km=1.0)
-        assert 350 <= len(pts) <= 380, f"Expected ~360 points, got {len(pts)}"
+        assert 600 <= len(pts) <= 640, f"Expected ~619 points, got {len(pts)}"
 
-    def test_centerline_starts_at_kota(self):
-        """First point should be at Kota (km ≈ 0)."""
+    def test_centerline_starts_at_bina(self):
+        """First point should be at Bina refinery (km ≈ 0)."""
         pts = generate_centerline()
         assert pts[0].km == 0.0
         assert pts[0].waypoint_name is not None
-        assert "Kota" in pts[0].waypoint_name
+        assert "Bina" in pts[0].waypoint_name
 
     def test_centerline_ends_at_bijwasan(self):
         """Last point should be at Bijwasan (km ≈ 360)."""
         pts = generate_centerline()
-        assert 355 <= pts[-1].km <= 365
+        assert 614 <= pts[-1].km <= 624
         assert pts[-1].waypoint_name is not None
         assert "Bijwasan" in pts[-1].waypoint_name
 
@@ -88,10 +88,13 @@ class TestCenterline:
         assert len(wp_names) >= 2
 
     def test_centerline_pipe_diameter(self):
-        """Points before km 340 should have 16" diameter."""
+        """Mainline before km 599 is NPS 18; the tail beyond it is NPS 8."""
         pts = generate_centerline()
         pt_100 = next(p for p in pts if p.km == 100.0)
-        assert abs(pt_100.D_outer_m - 16.0 * 0.0254) < 0.001
+        assert abs(pt_100.D_outer_m - 18.0 * 0.0254) < 1e-9
+
+        pt_610 = next(p for p in pts if p.km == 610.0)
+        assert abs(pt_610.D_outer_m - 8.625 * 0.0254) < 1e-9
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -220,21 +223,21 @@ class TestHeatTransfer:
     def test_u_value_positive(self):
         """U-value should be positive."""
         U = compute_U_value(
-            D_outer_m=0.4064,  # 16"
-            D_inner_m=0.381,
+            D_outer_m=0.21908,  # NPS 8 true OD (8.625 in)
+            D_inner_m=0.20272,  # 8.18 mm Sch 40 wall
             k_soil_WmK=1.0,
         )
         assert U > 0
 
     def test_u_value_increases_with_k_soil(self):
         """Higher k_soil should give higher U (more heat transfer)."""
-        U_low = compute_U_value(0.4064, 0.381, k_soil_WmK=0.5)
-        U_high = compute_U_value(0.4064, 0.381, k_soil_WmK=2.0)
+        U_low = compute_U_value(0.21908, 0.20272, k_soil_WmK=0.5)
+        U_high = compute_U_value(0.21908, 0.20272, k_soil_WmK=2.0)
         assert U_high > U_low
 
     def test_u_value_reasonable_range(self):
         """U should be in [0.5, 20] W/(m²·K) for buried steel pipe."""
-        U = compute_U_value(0.4064, 0.381, k_soil_WmK=1.0)
+        U = compute_U_value(0.21908, 0.20272, k_soil_WmK=1.0)
         assert 0.5 < U < 20, f"U = {U} outside expected range"
 
 
@@ -291,18 +294,18 @@ class TestFriction:
 
     def test_reynolds_number(self):
         """Reynolds number should be > 4000 for typical pipeline flow."""
-        Re = compute_reynolds(1.0, 0.381, 840.0, 0.003)
+        Re = compute_reynolds(1.0, 0.20272, 840.0, 0.003)
         assert Re > 4000  # turbulent flow
 
     def test_friction_factor_laminar(self):
         """Laminar friction factor = 64/Re."""
-        f = compute_friction_factor(Re=1000, D_inner_m=0.381)
+        f = compute_friction_factor(Re=1000, D_inner_m=0.20272)
         assert abs(f - 64.0 / 1000.0) < 0.001
 
     def test_friction_factor_turbulent_range(self):
         """Turbulent friction factor should be in [0.005, 0.05]."""
-        Re = compute_reynolds(1.5, 0.381, 840.0, 0.003)
-        f = compute_friction_factor(Re, 0.381)
+        Re = compute_reynolds(1.5, 0.20272, 840.0, 0.003)
+        f = compute_friction_factor(Re, 0.20272)
         assert 0.005 < f < 0.05
 
     def test_pressure_drop_positive(self):
@@ -312,7 +315,7 @@ class TestFriction:
             density_kgm3=840.0,
             viscosity_pas=0.003,
             length_m=360000.0,
-            D_inner_m=0.381,
+            D_inner_m=0.20272,
         )
         assert dP > 0
 

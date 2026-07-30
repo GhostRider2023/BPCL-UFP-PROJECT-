@@ -7,6 +7,7 @@ scipy>=1.12.0
 numpy>=1.26.0
 pandas>=2.2.0
 geographiclib>=2.0
+requests>=2.31.0        # OpenWeather current-weather client
 streamlit>=1.30.0
 plotly>=5.18.0
 pytest>=8.0.0           # validation suite — was missing

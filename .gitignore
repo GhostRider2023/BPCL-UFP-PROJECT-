@@ -26,3 +26,7 @@ Thumbs.db
 
 # API credentials for CDS
 api key.txt
+
+# API credentials for OpenWeather — never commit these
+.env
+openweather_key.txt

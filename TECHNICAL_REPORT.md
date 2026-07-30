@@ -232,11 +232,12 @@ sense, no customer.
 
 ### 3.2 The real signal: line fill
 
-The pipeline itself is inventory — **a 41,000+ KL tank that happens to be 360 km long**:
+The pipeline itself is inventory — **an 87,000 KL tank that happens to be 619 km long**:
 
 ```
-V_linefill = A · L = 0.1140 m² × 360,000 m ≈ 41,043 m³ = 41,043 KL
-(A from the 16" OD / 12.7 mm wall inner bore actually configured in this route)
+V_linefill = ∫A(x)dx ≈ 87,035 m³ = 87,035 KL
+(Two bores: 18" mainline Bina→Piyala, A = 0.144316 m² over 599 km, plus the
+ 8" tail Piyala→Bijwasan, A = 0.032275 m² over 20 km.)
 ```
 
 Monthly custody reconciliation is fundamentally an inventory balance — opening stock plus
@@ -408,7 +409,7 @@ it directly bounds what can be claimed to BPCL today.
 | Item | Status | Impact if unresolved | Action needed from BPCL |
 |---|---|---|---|
 | Route geometry (waypoints, elevation, chainage) | **Estimated** | ±30 m elevation error ≈ ±2.4 bar static-head error; wrong slack-flow calls | Surveyed coordinates & SRTM/Cartosat elevation along the centreline |
-| Piyala–Bijwasan final 20 km diameter | **Assumed 16″ uniform** | Config previously declared this 8″, implying ~6 m/s and >120 bar — physically implausible for a mainline; likely a partial-flow spur | Confirm true diameter & any flow split at Piyala against PNGRB tariff filings / BPCL drawings |
+| Piyala–Bijwasan final 20 km diameter | **NPS 8 tail on an 18″ mainline** | Config previously declared this 8″, implying ~6 m/s and >120 bar — physically implausible for a mainline; likely a partial-flow spur | Confirm true diameter & any flow split at Piyala against PNGRB tariff filings / BPCL drawings |
 | August soil data | **Missing** | No `AUGUST.zip` source file exists; August batches are rejected outright rather than silently scored against July | Supply the missing month's ERA5 or in-house soil temperature record |
 | Route coverage north of Bharatpur to Bina | **Not modelled** | Current ERA5 bounding box (25–29°N, 75.5–78°E) does not reach Bina (24.19°N, 78.20°E) | None required yet — a data change (fresh CDS pull + route CSV row), not a code change, when BPCL wants Bina included |
 | Soil heat-transfer coefficient (U) | **Uncalibrated, ±30%** | Johansen + burial correlations are textbook estimates; backfill, moisture migration and thermal contact resistance are not directly knowable | Measured receipt temperature time series to fit against (`U_scale` is already exposed as the calibration knob) |

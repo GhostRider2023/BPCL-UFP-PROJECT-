@@ -89,7 +89,7 @@ class TestJuneNaNRegression:
 
         Was: T_soil_C = NaN, moisture = 0.5 (the silent clamp), k_soil = 1.5013.
         """
-        row = soil[(soil["waypoint_km"] == 250.0) & (soil["month"] == 6)]
+        row = soil[(soil["waypoint_km"] == 509.0) & (soil["month"] == 6)]
         assert len(row) == 1
         r = row.iloc[0]
 
@@ -97,7 +97,7 @@ class TestJuneNaNRegression:
 
         # It must agree with its immediate neighbours along the route — a
         # nearest-valid fill that landed on nonsense would show up here.
-        neighbours = soil[(soil["month"] == 6) & (soil["waypoint_km"].isin([210.0, 330.0]))][
+        neighbours = soil[(soil["month"] == 6) & (soil["waypoint_km"].isin([469.0, 589.0]))][
             "T_soil_C"
         ]
         assert neighbours.min() - 2.0 <= r["T_soil_C"] <= neighbours.max() + 2.0, (
@@ -305,7 +305,7 @@ class TestReceiptTemperatureRegression:
         temperature. Heat flows one way only.
         """
         for month in available_months():
-            T_soil_receipt = soil_temperature_at(km=360.0, month=month)
+            T_soil_receipt = soil_temperature_at(km=619.0, month=month)
 
             for T_dispatch in (T_soil_receipt - 12.0, T_soil_receipt + 12.0):
                 profile = solve_from_csv_profile(
@@ -346,7 +346,7 @@ class TestReceiptTemperatureRegression:
         it against any future change of soil layer or burial depth.
         """
         for month in available_months():
-            T_soil = soil_temperature_at(km=360.0, month=month)
+            T_soil = soil_temperature_at(km=619.0, month=month)
 
             # Dispatched ABOVE the soil -> cools -> contracts -> positive UFP.
             T_hot = T_soil + 10.0
@@ -396,7 +396,7 @@ class TestReceiptTemperatureRegression:
             f"which lies in ERA5 layer 4 (100-289 cm)"
         )
 
-        temps = [soil_temperature_at(km=360.0, month=m) for m in available_months()]
+        temps = [soil_temperature_at(km=619.0, month=m) for m in available_months()]
         swing = max(temps) - min(temps)
 
         print(
