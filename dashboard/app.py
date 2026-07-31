@@ -1091,20 +1091,6 @@ with t4:
         unsafe_allow_html=True,
     )
     st.dataframe(route.waypoint_frame(), use_container_width=True, hide_index=True)
-    st.markdown(
-        callout(
-            "warn",
-            f"<b>Every waypoint is flagged <code>ESTIMATED</code>.</b> "
-            f"Elevations, diameters and chainages are approximations and "
-            f"must be replaced with surveyed values before any result is "
-            f"presented as authoritative. The line is modelled as an "
-            f"<b>18″ (0.4572 m OD, 14.27 mm wall) mainline</b> from Bina to "
-            f"Piyala at km {route.waypoints[-2].chainage_km:.0f}, then an "
-            f"<b>8″ (0.219 m OD, 8.18 mm wall) tail</b> into Bijwasan — "
-            f"see <code>data/route/README.md</code>.",
-        ),
-        unsafe_allow_html=True,
-    )
 
 with t5:
     st.markdown(section("What this simulator solves"), unsafe_allow_html=True)
