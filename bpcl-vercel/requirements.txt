@@ -1,0 +1,26 @@
+# Runtime dependencies for the Vercel Python functions.
+#
+# This list is short on purpose. A Vercel serverless function has a 250 MB
+# unzipped budget, and the obvious four would not fit:
+#
+#     numpy    33 MB
+#     pandas   65 MB
+#     scipy   118 MB   <- dropped; see api/_engine/numerics.py
+#     xarray
+#     + netCDF4/cfgrib/eccodes, another ~90 MB
+#
+# scipy supplied exactly two things: an ODE integrator and a 1-D interpolator.
+# Both are reimplemented in numerics.py in NumPy alone, and pinned against the
+# scipy build across 243 scenarios by tools/validate_against_scipy.py.
+#
+# xarray, netCDF4, cfgrib, eccodes and cdsapi are only needed to BUILD the soil
+# table from ERA5, which happens offline on a workstation with a CDS key. At
+# runtime the simulator reads the derived CSV and never opens a NetCDF file.
+#
+# Total installed: ~100 MB, comfortably inside the budget, and several seconds
+# faster to cold-start than the scipy build would be.
+
+numpy>=1.26.0
+pandas>=2.2.0
+geographiclib>=2.0      # WGS-84 geodesic interpolation for the route centreline
+requests>=2.31.0        # the two air-temperature providers

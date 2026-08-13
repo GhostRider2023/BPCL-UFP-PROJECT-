@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.vercel/
+*.local
+*.tsbuildinfo
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Secrets. The OpenWeather key is never committed — on Vercel it belongs in
+# Project Settings -> Environment Variables. The app works without one.
+.env
+.env.*
+!.env.example
+openweather_key.txt
+
+# Large regeneration inputs, not runtime data.
+*.nc
+*.grib
+
+.DS_Store

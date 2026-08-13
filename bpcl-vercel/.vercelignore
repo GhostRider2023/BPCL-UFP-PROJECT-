@@ -1,0 +1,15 @@
+# Development-only. Keeping these out of the deployment keeps the function
+# bundle inside its 250 MB budget and the build fast.
+tools/
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# The raw ERA5 NetCDF archives are 220 MB and are regeneration inputs only —
+# the runtime reads the derived CSV. They must never enter a function bundle.
+*.nc
+*.grib
+*.grb
