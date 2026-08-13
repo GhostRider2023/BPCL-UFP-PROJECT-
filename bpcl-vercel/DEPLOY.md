@@ -52,6 +52,34 @@ Python application, and looks for one ASGI/WSGI entrypoint.
 to being one Python app serving one handler, and the React front end would never
 be built at all. Set Root Directory instead.
 
+## The other error this avoids
+
+```
+sh: line 1: vite: command not found
+Error: Command "vite build" exited with 127
+```
+
+Two different causes produce this, and the quoted command tells you which.
+
+**If the quoted command is `vite build`** — that is the Vite preset's *default*.
+This repository's `vercel.json` sets `buildCommand` to `npm run build`, so seeing
+`vite build` means `vercel.json` was never read. Vercel reads it from the Root
+Directory, so the Root Directory is still wrong. Fix it as above; nothing in the
+repository can work around it.
+
+**If the quoted command is `npm run build`** — `vercel.json` was read, and the
+problem is that `node_modules` is missing the build tools. That happens when
+`NODE_ENV=production` is set in the project's Environment Variables, because npm
+then skips `devDependencies`. Everything `npm run build` touches is therefore
+kept in `dependencies` in `package.json`, not `devDependencies`, so the build
+survives it. Verify with:
+
+```bash
+rm -rf node_modules
+NODE_ENV=production npm install
+npm run build          # must succeed
+```
+
 ## From the CLI
 
 ```bash

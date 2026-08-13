@@ -12,22 +12,23 @@
     "preview": "vite preview",
     "lint": "tsc -b --noEmit"
   },
+  "//": "Everything `npm run build` touches lives in dependencies, not devDependencies. Vercel skips devDependencies whenever NODE_ENV=production is set on the project, and the failure it produces (`vite: command not found`, exit 127) points nowhere near the cause. Only the dev-server orchestrator is a real devDependency.",
   "dependencies": {
-    "leaflet": "^1.9.4",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-leaflet": "^5.0.0",
-    "recharts": "^2.15.3"
-  },
-  "devDependencies": {
     "@tailwindcss/vite": "^4.1.7",
     "@types/leaflet": "^1.9.17",
     "@types/react": "^19.1.5",
     "@types/react-dom": "^19.1.5",
     "@vitejs/plugin-react": "^4.4.1",
-    "concurrently": "^9.1.2",
+    "leaflet": "^1.9.4",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-leaflet": "^5.0.0",
+    "recharts": "^2.15.3",
     "tailwindcss": "^4.1.7",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   }
 }
