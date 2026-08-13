@@ -11,9 +11,9 @@ __pycache__/
 
 # Secrets. The OpenWeather key is never committed — on Vercel it belongs in
 # Project Settings -> Environment Variables. The app works without one.
+# `.env.local` is written by `vercel link` and holds a VERCEL_OIDC_TOKEN.
 .env
 .env.*
-!.env.example
 openweather_key.txt
 
 # Large regeneration inputs, not runtime data.
@@ -21,3 +21,7 @@ openweather_key.txt
 *.grib
 
 .DS_Store
+
+# The negation has to come last: `vercel link` appends its own `.env*` rule to
+# the end of this file, and a later pattern beats an earlier negation.
+!.env.example
